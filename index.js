@@ -14,6 +14,7 @@ import Categoria from './models/CategoriaModel.js'
 import userRoute from './routes/usuarioRoute.js'
 import produtoRoute from './routes/ProdutoRoute.js'
 import categoriaRoute from './routes/CategoriaRoute.js'
+import LocalRoute from './routes/LocalArmazenagemRoute.js'
 
 
 const app = express()
@@ -25,6 +26,7 @@ app.use(express.json())
 app.use('/user', userRoute)
 app.use('/produto', produtoRoute)
 app.use('/categoria', categoriaRoute)
+app.use('/local', LocalRoute)
 
 
 async function connectBanco(){

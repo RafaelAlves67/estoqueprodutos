@@ -6,20 +6,24 @@ import Usuario from "../models/UsuarioModel.js";
 
 export async function movimentacaoEstoque(req,res){
     try {
-         const {tipo, observacao, usuario_id, produtos, id_estoque} = req.body 
+         const {tipo, observacao, usuario_id, produtos, id_local} = req.body 
 
-    if(!tipo || !usuario_id || !produtos || !id_estoque){
+    if(!tipo || !usuario_id || !produtos || !id_local){
         return res.status(400).json({msg: "Informe os campos para movimentação"})
     }
 
-        const estoqueMov = await Estoque.findByPk(id_estoque)
-        if(!estoqueMov){
+        const localArmazenagem = await LocalArmaz.findByPk(id_local)
+        if(!localArmazenagem){
             return res.status(400).json({msg: "Local de armazenagem não encontrado"})
         }
 
         const verificaUsuario = await Usuario.findByPk(usuario_id)
         if(!verificaUsuario){
             return res.status(400).json({msg: "Usuário não encontrado"})
+        }
+
+        if(!produtos){
+            return res.status(400).json({msg: "Informe um produto para movimentação!"})
         }
 
 
@@ -37,19 +41,15 @@ export async function movimentacaoEstoque(req,res){
 
         // ENTRADA NO ESTOQUE
         if(tipo === 'ENTRADA'){
-            const estoque_x_produto = await Estoque.findOne({
-                where: {produto_id: produto.id, id: id_estoque}
+            const estoque_local_produto = await Estoque.findOne({
+                where: {produto_id: produto.id, localarmaz_id: id_local}
                 }) 
 
-            if(!estoque_x_produto){
-                const adicionarProdutoEstoque = await Estoque.create({produto_id: produto.id}, {
-                    where: {id: id_estoque}
-                })
-                estoqueMov.save();
+            if(!estoque_local_produto){
+                   
             }
-                
-                estoque_x_produto.quantidade = estoque_x_produto.quantidade + quantidade;
-                await estoqueMov.save()
+
+            
         }
    
         } catch (error) {
