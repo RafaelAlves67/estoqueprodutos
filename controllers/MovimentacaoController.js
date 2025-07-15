@@ -1,4 +1,5 @@
 import Estoque from "../models/EstoqueModel.js";
+import itemMovimentacao from "../models/itemMovimentacaoModel.js";
 import LocalArmaz from "../models/LocalArmazenagemModel.js";
 import Movimentacao from "../models/MovimentacaoModel.js";
 import Produto from "../models/ProdutoModel.js";
@@ -45,32 +46,44 @@ export async function movimentacaoEstoqueEntrada(req,res){
                 where: {produto_id: produto.id, localarmaz_id: id_local}
                 }) 
 
-            if(estoque_local_produto.lenght === 0){
+            if(!estoque_local_produto){
                 const novoEstoque = await Estoque.create({
                     quantidade: produto.quantidade,
                     produto_id: produto.id,
                     localarmaz_id: id_local
                 })
-
-                produtosReturn.push(novoEstoque)
             }
 
             estoque_local_produto.quantidade = estoque_local_produto.quantidade + produto.quantidade 
             estoque_local_produto.data_atualizacao = new Date() 
 
-            produtosReturn.push(estoque_local_produto)
-            const novaMovimentacao = await Movimentacao.create({
-                tipo: 'ENTRADA',
-                quantidade: quantidade,
-            })
-            return res.status(200).json({msg: "Movimentação de entrada feita com sucesso!", produtosReturn})
-   
+            produtosReturn.push(produto)   
         } catch (error) {
             console.log("Erro no looping de produtos => ", error)
-        return res.status(501).json({msg: "Erro no looping de produtos => ", error})
+            return res.status(501).json({msg: "Erro no looping de produtos => ", error})
         }      
         
     }   
+        // FIM DO FOR
+         const novaMovimentacao = await Movimentacao.create({
+                tipo: 'ENTRADA',
+                usuario_id: usuario_id,
+                observacao: observacao,
+                localarmaz_id:  id_local
+            })
+
+        // CADASTRAR ITENS MOVIMENTACAO
+        const itemMovEstq = await produtos.map(produto => ({
+            ...produto,
+            movimentacao_id: novaMovimentacao.id
+        }))
+
+        // CRIAR REGISTRO NO BANCO
+        const novoItemMovEstq = await itemMovimentacao.bulkCreate(itemMovEstq, {
+            validate: true
+        })
+        
+        return res.status(200).json({msg: "Movimentação de entrada feita com sucesso!", novaMovimentacao, novoItemMovEstq})
     } catch (error) {
         console.log("Erro na rota de entrada de movimentação de estoque => ", error)
         return res.status(501).json({msg: "Erro na rota de entrada de movimentação de estoque => ", error})
