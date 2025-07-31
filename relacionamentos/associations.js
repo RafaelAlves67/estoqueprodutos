@@ -6,6 +6,7 @@ import LocalArmaz from "../models/LocalArmazenagemModel.js";
 import Marca from "../models/MarcaModel.js"
 import Categoria from "../models/CategoriaModel.js"
 import itemMovimentacao from "../models/itemMovimentacaoModel.js";
+import Cliente from "../models/ClienteModel.js";
 
 Produto.belongsTo(Marca, { foreignKey: "marca_id" });
 Produto.belongsTo(Categoria, { foreignKey: "categoria_id" });
@@ -27,6 +28,11 @@ Movimentacao.belongsTo(itemMovimentacao, {foreignKey: 'movimentacao_id'})
 
 LocalArmaz.hasMany(Movimentacao, { foreignKey: 'localarmaz_id' });
 Movimentacao.belongsTo(LocalArmaz, { foreignKey: 'localarmaz_id' });
+
+Cliente.hasMany(Movimentacao, { foreignKey: 'cliente_id' });
+Movimentacao.belongsTo(Cliente, { foreignKey: 'cliente_id' });
+
+
 
 
 

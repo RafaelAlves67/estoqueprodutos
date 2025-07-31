@@ -7,10 +7,10 @@ import Usuario from "../models/UsuarioModel.js";
 
 export async function movimentacaoEstoqueEntrada(req,res){
     try {
-         const {tipo, observacao, usuario_id, produtos, id_local} = req.body 
+         const {tipo, observacao, usuario_id, produtos, id_local, cliente_id} = req.body 
          const produtosReturn = [];
 
-    if(!tipo || !usuario_id || !produtos || !id_local){
+    if(!tipo || !usuario_id || !produtos || !id_local || !cliente_id){
         return res.status(400).json({msg: "Informe os campos para movimentação"})
     }
 
@@ -24,9 +24,15 @@ export async function movimentacaoEstoqueEntrada(req,res){
             return res.status(400).json({msg: "Usuário não encontrado"})
         }
 
+        const vericaCliente = await Cliente.findByPk(cliente_id) 
+        if(!vericaCliente){
+            return res.status(400).json({msg: "Cliente não encontrado"})
+        }
+
         if(!produtos){
             return res.status(400).json({msg: "Informe um produto para movimentação!"})
         }
+
 
 
     for(let produto of produtos){
@@ -69,7 +75,8 @@ export async function movimentacaoEstoqueEntrada(req,res){
                 tipo: 'ENTRADA',
                 usuario_id: usuario_id,
                 observacao: observacao,
-                localarmaz_id:  id_local
+                localarmaz_id:  id_local,
+                cliente_id: cliente_id
             })
 
         // CADASTRAR ITENS MOVIMENTACAO
@@ -78,7 +85,7 @@ export async function movimentacaoEstoqueEntrada(req,res){
             movimentacao_id: novaMovimentacao.id
         }))
 
-        // CRIAR REGISTRO NO BANCO
+        // CRIAR REGISTRO NO BANCO DO ITEM
         const novoItemMovEstq = await itemMovimentacao.bulkCreate(itemMovEstq, {
             validate: true
         })
@@ -92,8 +99,8 @@ export async function movimentacaoEstoqueEntrada(req,res){
 
 export async function movimentacaoEstoqueSaida(req,res) {
     try {
-            const {tipo, observacao, usuario_id, produto_id, id_local, quantidade} = req.body 
-          if(!tipo || !usuario_id || !produto_id || !id_local || !quantidade){
+        const {tipo, observacao, usuario_id, produtos, id_local, cliente_id} = req.body
+        if(!tipo || !usuario_id || !produto_id || !id_local || !quantidade){
         return res.status(400).json({msg: "Informe os campos para movimentação"})
         }
 
@@ -111,26 +118,154 @@ export async function movimentacaoEstoqueSaida(req,res) {
             return res.status(400).json({msg: "Usuário não encontrado"})
         }
 
-        const estoque = await Estoque.find({where: {
-            localarmaz_id: id_local,
-            produto_id: produto_id
-        }})
-
-        if(!estoque){
-            return res.status(400).json({msg: "Estoque não existe!"})
+          const vericaCliente = await Cliente.findByPk(cliente_id) 
+        if(!vericaCliente){
+            return res.status(400).json({msg: "Cliente não encontrado"})
         }
 
-        if(estoque.quantidade === 0){
+        for(let produto of produtos){
+            const estoque = await Estoque.find({where: {
+                localarmaz_id: id_local,
+                produto_id: produto.id
+            }})
+
+             if(!estoque){
+                return res.status(400).json({msg: "Estoque não existe!"})
+              }
+
+                 if(estoque.quantidade === 0){
             return res.status(400).json({msg: "Estoque está zerado!"})
         }
 
-        if(quantidade > estoque.quantidade){
+        if(produto.quantidade > estoque.quantidade){
             return res.status(400).json({msg: "Saldo insuficiente para saída!"})
         }
 
-        estoque.quantidade = estoque.quantidade - quantidade
+        estoque.quantidade = estoque.quantidade - produto.quantidade
+        estoque.save() 
+        }
+
+        // MOVIMENTAÇÃO
+        const novaMovimentacao = await Movimentacao.create({
+            tipo: 'SAIDA',
+            usuario_id: usuario_id,
+            observacao: observacao,
+            localarmaz_id:  id_local,
+            cliente_id: cliente_id
+        })
+
+        const itensMovEstq = await produtos.map(p => ({
+            ...p,
+            movimentacao_id: novaMovimentacao.id
+        }))
+
+        // ITEM MOVIMENTAÇÃO 
+        const novosItemMovimentacao = await itemMovimentacao.bulkCreate(itensMovEstq, {
+            validate: true
+        })
+     
+        return res.status(200).json({msg: "Movimentação de saída feita!", novaMovimentacao, novosItemMovimentacao})
+
     } catch (error) {
         console.log("Erro na rota de saída de movimentação de estoque => ", error)
         return res.status(501).json({msg: "Erro na rota de saída de movimentação de estoque => ", error})
     }
 }
+
+
+export async function ajusteInventario(req,res){
+    try {
+     const {produto_id, local_origem, local_destino, usuario_id, observacao, quantidade} = req.body
+
+    if(!produto_id || !local_destino || !local_origem || !usuario_id || !quantidade){
+        return res.status(400).json({msg: "Preencha os campos para transfêrencia"})
+    }
+
+    const verificaProduto = await Produto.findByPk(produto_id)   
+    if(!verificaProduto){
+        return res.status(400).json({msg: "Produto não encontrado!"})
+    }
+
+    const verificaLocalOrigem = await LocalArmaz.findByPk(local_origem)   
+    if(!verificaLocalOrigem){
+        return res.status(400).json({msg: "Local de origem não encontrado!"})
+    }
+
+    const verificaLocalDestino = await LocalArmaz.findByPk(local_destino)   
+    if(!verificaLocalDestino){
+        return res.status(400).json({msg: "Local de destino não encontrado!"})
+    }
+
+    const verificaUsuario = await Usuario.findByPk(usuario_id)   
+    if(!verificaUsuario){
+        return res.status(400).json({msg: "Usuário não encontrado!"})
+    }
+
+    if(quantidade === 0 || !quantidade || quantidade < 0){
+         return res.status(400).json({msg: "Quantidade inválida!"})
+    }
+
+    // verifica estoque do local
+    const estoqueOrigem = await Estoque.findOne({
+        where: {
+            localarmaz_id: local_origem,
+            produto_id: produto_id
+        }
+    })
+
+    if(!estoqueOrigem){
+        return res.status(400).json({msg: "Estoque de origem não existe!"})
+    }
+
+    if(estoqueOrigem.quantidade === 0){
+        return res.status(400).json({msg: "Quantidade do estoque está zerada!"})
+    }
+
+    if(estoqueOrigem.quantidade < quantidade){
+        return res.status(400).json({msg: "Saldo insuficiente para transferência."})
+    }
+
+    const estoqueDestino = await Estoque.findOne({
+        where: {
+            localarmaz_id: local_destino, 
+            produto_id: produto_id
+        }
+    })
+
+    if(!estoqueDestino){
+        const novoEstoque = await Estoque.create({
+            quantidade: quantidade,
+            produto_id: produto_id, 
+            localarmaz_id: local_destino
+        })
+    }else{
+        estoqueDestino.quantidade = estoqueDestino.quantidade + quantidade
+        estoqueDestino.save()
+    }
+
+    
+    estoqueOrigem.quantidade = estoqueOrigem.quantidade - quantidade
+    estoqueOrigem.save()
+
+    // MOVIMENTAÇÃO
+    const novaMovimentacao = await Movimentacao.create({
+        tipo: 'TRANSFERENCIA',
+        usuario_id: usuario_id,
+        observacao: observacao, 
+        localarmaz_id: local_destino,
+        origem_destino: local_origem
+    })
+
+    const itemMovEstq = await itemMovimentacao.create({
+        produto_id: produto_id,
+        quantidade: quantidade,
+        movimentacao_id: novaMovimentacao.id
+    })
+    return res.status(200).json({msg: "Transferência feita com sucesso!",novaMovimentacao, itemMovEstq , estoqueOrigem, estoqueDestino})
+
+    } catch (error) {
+           console.log("Erro na rota de transferencia de movimentação de estoque => ", error)
+        return res.status(501).json({msg: "Erro na rota de transferencia  de movimentação de estoque => ", error})
+    }
+}
+

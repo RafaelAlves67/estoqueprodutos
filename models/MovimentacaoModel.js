@@ -7,7 +7,7 @@ const Movimentacao = db.define("Movimentacao", {
   data_movimentacao: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   origem_destino: { type: DataTypes.STRING },
   usuario_id: { type: DataTypes.INTEGER, allowNull: false },
-  observacao: { type: DataTypes.TEXT, allowNull: true}
+  observacao: { type: DataTypes.TEXT, allowNull: true},
 });
 
 export default Movimentacao;
