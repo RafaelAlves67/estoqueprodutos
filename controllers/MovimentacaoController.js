@@ -4,6 +4,7 @@ import LocalArmaz from "../models/LocalArmazenagemModel.js";
 import Movimentacao from "../models/MovimentacaoModel.js";
 import Produto from "../models/ProdutoModel.js";
 import Usuario from "../models/UsuarioModel.js";
+import Cliente from "../models/ClienteModel.js";
 
 export async function movimentacaoEstoqueEntrada(req,res){
     try {
